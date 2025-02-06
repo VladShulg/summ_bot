@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Хранилище сообщений
+# Хранилище сообщений для каждого пользователя
 messages_store: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+
 default_message_limit = 100
 
 # Суммаризация
@@ -133,6 +134,8 @@ async def set_limit_command(message: Message):
         else:
             global default_message_limit
             default_message_limit = limit
+            for user_messages in messages_store.values():
+                user_messages.maxlen = limit
             await message.answer(f"Теперь лимит сообщений для суммаризации: {default_message_limit}")
     except ValueError:
         await message.answer("Пожалуйста, укажите число для лимита.")
@@ -147,8 +150,8 @@ async def summary_command(message: Message):
     
     try:
         summaries = []
-        for username, messages in messages_store.items():
-            clean_text = ' '.join([TextProcessor.clean_text(msg) for msg in messages])
+        for username, user_messages in messages_store.items():
+            clean_text = ' '.join([TextProcessor.clean_text(msg) for msg in user_messages])
             entity_text = TextProcessor.extract_named_entities(clean_text)
             
             if clean_text.strip():
@@ -156,8 +159,6 @@ async def summary_command(message: Message):
                 user_summary = " ".join([generate_summary(chunk) for chunk in text_chunks])
                 summaries.append(f"👤 *{username}*: {user_summary}{entity_text}")
         
-        messages_store.clear()
-
         if summaries:
             summary_text = "\n\n".join(summaries)
 
